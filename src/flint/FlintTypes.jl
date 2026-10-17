@@ -45,7 +45,7 @@ integer_ring() = ZZRing()
 
 @doc zz_ring_doc
 mutable struct ZZRingElem <: RingElem
-  d::Int
+  d::FlintC.fmpz
 
   function ZZRingElem()
     z = new()
@@ -101,11 +101,7 @@ mutable struct ZZRingElem <: RingElem
 end
 
 mutable struct fmpz_factor
-  sign::Cint
-  p::Ptr{ZZRingElem} # array of fmpz
-  exp::Ptr{UInt}
-  alloc::Int
-  num::Int
+  cstruct::FlintC.fmpz_factor_struct
 
   function fmpz_factor()
     z = new()
@@ -114,6 +110,7 @@ mutable struct fmpz_factor
     return z
   end
 end
+@flint_fields fmpz_factor
 
 struct ZZRingElemUnitRange <: AbstractUnitRange{ZZRingElem}
   start::ZZRingElem
@@ -128,9 +125,7 @@ end
 ###############################################################################
 
 mutable struct n_factor
-  num::Cint
-  exp::NTuple{15, Cint}
-  p::NTuple{15, UInt}
+  cstruct::FlintC.n_factor_t
 
   function n_factor()
     z = new()
@@ -139,6 +134,7 @@ mutable struct n_factor
     return z
   end
 end
+@flint_fields n_factor
 
 ###############################################################################
 #
@@ -175,8 +171,7 @@ rational_field() = QQ
 
 @doc qq_field_doc
 mutable struct QQFieldElem <: FracElem{ZZRingElem}
-  num::Int
-  den::Int
+  cstruct::FlintC.fmpq
 
   function QQFieldElem()
     z = new()
@@ -223,6 +218,7 @@ mutable struct QQFieldElem <: FracElem{ZZRingElem}
 
   QQFieldElem(a::QQFieldElem) = a
 end
+@flint_fields QQFieldElem
 
 ################################################################################
 #
@@ -314,10 +310,7 @@ end
 const FmpzPolyID = CacheDictType{Symbol, ZZPolyRing}()
 
 mutable struct ZZPolyRingElem <: PolyRingElem{ZZRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_poly_struct
 
   parent::ZZPolyRing
 
@@ -347,13 +340,10 @@ mutable struct ZZPolyRingElem <: PolyRingElem{ZZRingElem}
     return z
   end
 end
+@flint_fields ZZPolyRingElem
 
 mutable struct fmpz_poly_factor
-  d::Int # ZZRingElem
-  p::Ptr{ZZPolyRingElem} # array of flint fmpz_poly_struct's
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
+  cstruct::FlintC.fmpz_poly_factor_struct
 
   function fmpz_poly_factor()
     z = new()
@@ -361,6 +351,10 @@ mutable struct fmpz_poly_factor
     finalizer(_fmpz_poly_factor_clear_fn, z)
     return z
   end
+end
+@flint_fields fmpz_poly_factor p = Ptr{ZZPolyRingElem}
+@flint_legacy_fields fmpz_poly_factor begin
+  d = cstruct.c
 end
 
 ###############################################################################
@@ -382,11 +376,7 @@ end
 const FmpqPolyID = CacheDictType{Symbol, QQPolyRing}()
 
 mutable struct QQPolyRingElem <: PolyRingElem{QQFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  den::Int
-  # end flint struct
+  cstruct::FlintC.fmpq_poly_struct
 
   parent::QQPolyRing
 
@@ -418,6 +408,7 @@ mutable struct QQPolyRingElem <: PolyRingElem{QQFieldElem}
     return z
   end
 end
+@flint_fields QQPolyRingElem
 
 ###############################################################################
 #
@@ -513,22 +504,19 @@ end
 ###############################################################################
 
 mutable struct fmpz_mod_ctx_struct
-  n::Int # fmpz_t
-  add_fxn::Ptr{Cvoid}
-  sub_fxn::Ptr{Cvoid}
-  mul_fxn::Ptr{Cvoid}
-  n2::UInt
-  ninv::UInt
-  norm::UInt
-  n_limbs::Tuple{UInt, UInt, UInt}
-  ninv_limbs::Tuple{UInt, UInt, UInt}
-  ninv_huge::Ptr{Cvoid} # fmpz_preinvn_struct *
+  cstruct::FlintC.fmpz_mod_ctx_struct
 
   function fmpz_mod_ctx_struct()
     z = new()
     finalizer(_fmpz_mod_ctx_clear_fn, z)
     return z
   end
+end
+@flint_fields fmpz_mod_ctx_struct
+@flint_legacy_fields fmpz_mod_ctx_struct begin
+  n2 = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
 end
 
 @doc raw"""
@@ -624,12 +612,7 @@ end
 const NmodPolyRingID = CacheDictType{Tuple{zzModRing, Symbol}, zzModPolyRing}()
 
 mutable struct zzModPolyRingElem <: PolyRingElem{zzModRingElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
+  cstruct::FlintC.nmod_poly_struct
   parent::zzModPolyRing
 
   function zzModPolyRingElem(n::UInt)
@@ -701,12 +684,15 @@ mutable struct zzModPolyRingElem <: PolyRingElem{zzModRingElem}
     return z
   end
 end
+@flint_fields zzModPolyRingElem
+@flint_legacy_fields zzModPolyRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 mutable struct nmod_poly_factor
-  poly::Ptr{zzModPolyRingElem}  # array of flint nmod_poly_struct's
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
+  cstruct::FlintC.nmod_poly_factor_struct
   n::UInt
 
   function nmod_poly_factor(n::UInt)
@@ -716,6 +702,10 @@ mutable struct nmod_poly_factor
     finalizer(_nmod_poly_factor_clear_fn, z)
     return z
   end
+end
+@flint_fields nmod_poly_factor p = Ptr{zzModPolyRingElem}
+@flint_legacy_fields nmod_poly_factor begin
+  poly = Ptr{zzModPolyRingElem}(cstruct.p)
 end
 
 ################################################################################
@@ -738,12 +728,7 @@ end
 const GFPPolyRingID = CacheDictType{Tuple{fpField, Symbol}, fpPolyRing}()
 
 mutable struct fpPolyRingElem <: PolyRingElem{fpFieldElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
+  cstruct::FlintC.nmod_poly_struct
   parent::fpPolyRing
 
   function fpPolyRingElem(n::UInt)
@@ -815,6 +800,12 @@ mutable struct fpPolyRingElem <: PolyRingElem{fpFieldElem}
     return z
   end
 end
+@flint_fields fpPolyRingElem
+@flint_legacy_fields fpPolyRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 function _set_mod!(z::T, m::nmod_t) where {T <: Union{zzModPolyRingElem, fpPolyRingElem}}
   @ccall libflint.nmod_poly_set_mod(z::Ref{T}, m::nmod_t)::Nothing
@@ -839,10 +830,7 @@ function _set_mod!(z::fpPolyRingElem, P::fpPolyRing)
 end
 
 mutable struct gfp_poly_factor
-  poly::Ptr{fpPolyRingElem}  # array of flint nmod_poly_struct's
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
+  cstruct::FlintC.nmod_poly_factor_struct
   n::UInt
 
   function gfp_poly_factor(n::UInt)
@@ -852,6 +840,10 @@ mutable struct gfp_poly_factor
     finalizer(_nmod_poly_factor_clear_fn, z)
     return z
   end
+end
+@flint_fields gfp_poly_factor p = Ptr{fpPolyRingElem}
+@flint_legacy_fields gfp_poly_factor begin
+  poly = Ptr{fpPolyRingElem}(cstruct.p)
 end
 
 ###############################################################################
@@ -874,10 +866,7 @@ end
 const FmpzModPolyRingID = CacheDictType{Tuple{ZZModRing, Symbol}, ZZModPolyRing}()
 
 mutable struct ZZModPolyRingElem <: PolyRingElem{ZZModRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end of flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   parent::ZZModPolyRing
 
@@ -947,13 +936,10 @@ mutable struct ZZModPolyRingElem <: PolyRingElem{ZZModRingElem}
     return z
   end
 end
+@flint_fields ZZModPolyRingElem
 
 mutable struct fmpz_mod_poly_factor
-  poly::Ptr{ZZModPolyRingElem}
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_factor_struct
 
   n::fmpz_mod_ctx_struct
 
@@ -969,6 +955,7 @@ mutable struct fmpz_mod_poly_factor
     return fmpz_mod_poly_factor(R.ninv)
   end
 end
+@flint_fields fmpz_mod_poly_factor poly = Ptr{ZZModPolyRingElem}
 
 ###############################################################################
 #
@@ -990,10 +977,7 @@ end
 const GFPFmpzPolyRingID = CacheDictType{Tuple{FpField, Symbol}, FpPolyRing}()
 
 mutable struct FpPolyRingElem <: PolyRingElem{FpFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   parent::FpPolyRing
 
@@ -1063,13 +1047,10 @@ mutable struct FpPolyRingElem <: PolyRingElem{FpFieldElem}
     return z
   end
 end
+@flint_fields FpPolyRingElem
 
 mutable struct gfp_fmpz_poly_factor
-  poly::Ptr{FpPolyRingElem}
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_factor_struct
 
   n::fmpz_mod_ctx_struct
 
@@ -1085,6 +1066,7 @@ mutable struct gfp_fmpz_poly_factor
     return gfp_fmpz_poly_factor(R.ninv)
   end
 end
+@flint_fields gfp_fmpz_poly_factor poly = Ptr{FpPolyRingElem}
 
 ###############################################################################
 #
@@ -1125,13 +1107,7 @@ function _flint_ordering_symbol(b::Cint)
 end
 
 @attributes mutable struct ZZMPolyRing <: MPolyRing{ZZRingElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
+  cstruct::FlintC.fmpz_mpoly_ctx_struct
 
   S::Vector{Symbol}
 
@@ -1147,17 +1123,22 @@ end
     end
   end
 end
+@flint_fields ZZMPolyRing
+@flint_legacy_fields ZZMPolyRing begin
+  nvars = cstruct.minfo.nvars
+  nfields = cstruct.minfo.nfields
+  ord = Cint(cstruct.minfo.ord)
+  deg = cstruct.minfo.deg
+  rev = cstruct.minfo.rev
+  lut = cstruct.minfo.lut_words_per_exp
+  lut1 = cstruct.minfo.lut_fix_bits
+end
 ZZMPolyRing(::ZZRing, s::Vector{Symbol}, S::Symbol, cached::Bool=true) = ZZMPolyRing(s, S, cached)
 
 const FmpzMPolyID = CacheDictType{Tuple{Vector{Symbol}, Symbol}, ZZMPolyRing}()
 
 mutable struct ZZMPolyRingElem <: MPolyRingElem{ZZRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  exps::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  bits::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mpoly_struct
 
   parent::ZZMPolyRing
 
@@ -1219,15 +1200,10 @@ mutable struct ZZMPolyRingElem <: MPolyRingElem{ZZRingElem}
   ZZMPolyRingElem(ctx::ZZMPolyRing, a::ZZRingElem) = set!(ZZMPolyRingElem(ctx), a)
   ZZMPolyRingElem(ctx::ZZMPolyRing, a::Integer) = set!(ZZMPolyRingElem(ctx), a)
 end
+@flint_fields ZZMPolyRingElem
 
 mutable struct fmpz_mpoly_factor
-  constant::Int
-  constant_den::Int
-  poly::Ptr{Cvoid} # array of fmpz_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mpoly_factor_struct
 
   parent::ZZMPolyRing
 
@@ -1239,6 +1215,7 @@ mutable struct fmpz_mpoly_factor
     return z
   end
 end
+@flint_fields fmpz_mpoly_factor
 
 ###############################################################################
 #
@@ -1247,13 +1224,7 @@ end
 ###############################################################################
 
 @attributes mutable struct QQMPolyRing <: MPolyRing{QQFieldElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
+  cstruct::FlintC.fmpq_mpoly_ctx_struct
 
   S::Vector{Symbol}
 
@@ -1269,18 +1240,22 @@ end
     end
   end
 end
+@flint_fields QQMPolyRing
+@flint_legacy_fields QQMPolyRing begin
+  nvars = cstruct.zctx.minfo.nvars
+  nfields = cstruct.zctx.minfo.nfields
+  ord = Cint(cstruct.zctx.minfo.ord)
+  deg = cstruct.zctx.minfo.deg
+  rev = cstruct.zctx.minfo.rev
+  lut = cstruct.zctx.minfo.lut_words_per_exp
+  lut1 = cstruct.zctx.minfo.lut_fix_bits
+end
 QQMPolyRing(::QQField, s::Vector{Symbol}, S::Symbol, cached::Bool=true) = QQMPolyRing(s, S, cached)
 
 const FmpqMPolyID = CacheDictType{Tuple{Vector{Symbol}, Symbol}, QQMPolyRing}()
 
 mutable struct QQMPolyRingElem <: MPolyRingElem{QQFieldElem}
-  content_num::Int
-  content_den::Int
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  exps::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  bits::Int
+  cstruct::FlintC.fmpq_mpoly_struct
 
   parent::QQMPolyRing
 
@@ -1345,15 +1320,19 @@ mutable struct QQMPolyRingElem <: MPolyRingElem{QQFieldElem}
   QQMPolyRingElem(ctx::QQMPolyRing, a::Rational) = set!(QQMPolyRingElem(ctx), a)
 
 end
+@flint_fields QQMPolyRingElem
+@flint_legacy_fields QQMPolyRingElem begin
+  content_num = cstruct.content.num
+  content_den = cstruct.content.den
+  coeffs = cstruct.zpoly.coeffs
+  exps = cstruct.zpoly.exps
+  alloc = cstruct.zpoly.alloc
+  length = cstruct.zpoly.length
+  bits = cstruct.zpoly.bits
+end
 
 mutable struct fmpq_mpoly_factor
-  constant_num::Int
-  constant_den::Int
-  poly::Ptr{Cvoid} # array of fmpq_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fmpq_mpoly_factor_struct
 
   parent::QQMPolyRing
 
@@ -1365,6 +1344,11 @@ mutable struct fmpq_mpoly_factor
     return z
   end
 end
+@flint_fields fmpq_mpoly_factor
+@flint_legacy_fields fmpq_mpoly_factor begin
+  constant_num = cstruct.constant.num
+  constant_den = cstruct.constant.den
+end
 
 ###############################################################################
 #
@@ -1373,18 +1357,7 @@ end
 ###############################################################################
 
 @attributes mutable struct zzModMPolyRing <: MPolyRing{zzModRingElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
-
-  n::UInt
-  ninv::UInt
-  norm::Int
-  # end of flint struct
+  cstruct::FlintC.nmod_mpoly_ctx_struct
 
   base_ring::zzModRing
   S::Vector{Symbol}
@@ -1402,17 +1375,24 @@ end
     end
   end
 end
+@flint_fields zzModMPolyRing
+@flint_legacy_fields zzModMPolyRing begin
+  nvars = cstruct.minfo.nvars
+  nfields = cstruct.minfo.nfields
+  ord = Cint(cstruct.minfo.ord)
+  deg = cstruct.minfo.deg
+  rev = cstruct.minfo.rev
+  lut = cstruct.minfo.lut_words_per_exp
+  lut1 = cstruct.minfo.lut_fix_bits
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+end
 
 const NmodMPolyID = CacheDictType{Tuple{zzModRing, Vector{Symbol}, Symbol}, zzModMPolyRing}()
 
 mutable struct zzModMPolyRingElem <: MPolyRingElem{zzModRingElem}
-  coeffs::Ptr{UInt} # array of ulong
-  exps::Ptr{UInt} # array of ulong
-  length::Int
-  bits::Int
-  coeffs_alloc::Int
-  exps_alloc::Int
-  # end of flint struct
+  cstruct::FlintC.nmod_mpoly_struct
 
   parent::zzModMPolyRing
 
@@ -1483,14 +1463,10 @@ mutable struct zzModMPolyRingElem <: MPolyRingElem{zzModRingElem}
     return z
   end
 end
+@flint_fields zzModMPolyRingElem
 
 mutable struct nmod_mpoly_factor
-  constant::UInt
-  poly::Ptr{Cvoid} # array of nmod_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.nmod_mpoly_factor_struct
 
   parent::zzModMPolyRing
 
@@ -1502,6 +1478,7 @@ mutable struct nmod_mpoly_factor
     return z
   end
 end
+@flint_fields nmod_mpoly_factor
 
 ################################################################################
 #
@@ -1510,18 +1487,7 @@ end
 ###############################################################################
 
 @attributes mutable struct fpMPolyRing <: MPolyRing{fpFieldElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
-
-  n::UInt
-  ninv::UInt
-  norm::Int
-  # end of flint struct
+  cstruct::FlintC.nmod_mpoly_ctx_struct
 
   base_ring::fpField
   S::Vector{Symbol}
@@ -1539,17 +1505,24 @@ end
     end
   end
 end
+@flint_fields fpMPolyRing
+@flint_legacy_fields fpMPolyRing begin
+  nvars = cstruct.minfo.nvars
+  nfields = cstruct.minfo.nfields
+  ord = Cint(cstruct.minfo.ord)
+  deg = cstruct.minfo.deg
+  rev = cstruct.minfo.rev
+  lut = cstruct.minfo.lut_words_per_exp
+  lut1 = cstruct.minfo.lut_fix_bits
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+end
 
 const GFPMPolyID = CacheDictType{Tuple{fpField, Vector{Symbol}, Symbol}, fpMPolyRing}()
 
 mutable struct fpMPolyRingElem <: MPolyRingElem{fpFieldElem}
-  coeffs::Ptr{UInt} # array of ulong
-  exps::Ptr{UInt} # array of ulong
-  length::Int
-  bits::Int
-  coeffs_alloc::Int
-  exps_alloc::Int
-  # end of flint struct
+  cstruct::FlintC.nmod_mpoly_struct
 
   parent::fpMPolyRing
 
@@ -1620,14 +1593,10 @@ mutable struct fpMPolyRingElem <: MPolyRingElem{fpFieldElem}
     return z
   end
 end
+@flint_fields fpMPolyRingElem
 
 mutable struct gfp_mpoly_factor
-  constant::UInt
-  poly::Ptr{Cvoid} # array of nmod_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.nmod_mpoly_factor_struct
 
   parent::fpMPolyRing
 
@@ -1639,6 +1608,7 @@ mutable struct gfp_mpoly_factor
     return z
   end
 end
+@flint_fields gfp_mpoly_factor
 
 ################################################################################
 #
@@ -1647,25 +1617,7 @@ end
 ###############################################################################
 
 @attributes mutable struct FpMPolyRing <: MPolyRing{FpFieldElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
-
-  n::Int # fmpz_t
-  add_fxn::Ptr{Cvoid}
-  sub_fxn::Ptr{Cvoid}
-  mul_fxn::Ptr{Cvoid}
-  n2::UInt
-  ninv::UInt
-  norm::UInt
-  n_limbs::Tuple{UInt, UInt, UInt}
-  ninv_limbs::Tuple{UInt, UInt, UInt}
-  ninv_huge::Ptr{Cvoid} # fmpz_preinvn_struct *
-  # end of flint struct
+  cstruct::FlintC.fmpz_mod_mpoly_ctx_struct
 
   base_ring::FpField
   S::Vector{Symbol}
@@ -1683,17 +1635,31 @@ end
     end
   end
 end
+@flint_fields FpMPolyRing
+@flint_legacy_fields FpMPolyRing begin
+  nvars = cstruct.minfo.nvars
+  nfields = cstruct.minfo.nfields
+  ord = Cint(cstruct.minfo.ord)
+  deg = cstruct.minfo.deg
+  rev = cstruct.minfo.rev
+  lut = cstruct.minfo.lut_words_per_exp
+  lut1 = cstruct.minfo.lut_fix_bits
+  n = cstruct.ffinfo.n
+  add_fxn = cstruct.ffinfo.add_fxn
+  sub_fxn = cstruct.ffinfo.sub_fxn
+  mul_fxn = cstruct.ffinfo.mul_fxn
+  n2 = cstruct.ffinfo.mod.n
+  ninv = cstruct.ffinfo.mod.ninv
+  norm = cstruct.ffinfo.mod.norm
+  n_limbs = cstruct.ffinfo.n_limbs
+  ninv_limbs = cstruct.ffinfo.ninv_limbs
+  ninv_huge = cstruct.ffinfo.ninv_huge
+end
 
 const GFPFmpzMPolyID = CacheDictType{Tuple{FpField, Vector{Symbol}, Symbol}, FpMPolyRing}()
 
 mutable struct FpMPolyRingElem <: MPolyRingElem{FpFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  exps::Ptr{UInt} # array of ulong
-  length::Int
-  bits::Int
-  coeffs_alloc::Int
-  exps_alloc::Int
-  # end of flint struct
+  cstruct::FlintC.fmpz_mod_mpoly_struct
 
   parent::FpMPolyRing
 
@@ -1731,14 +1697,10 @@ mutable struct FpMPolyRingElem <: MPolyRingElem{FpFieldElem}
     return z
   end
 end
+@flint_fields FpMPolyRingElem
 
 mutable struct gfp_fmpz_mpoly_factor
-  constant::Int
-  poly::Ptr{Cvoid} # array of fmpz_mod_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_mpoly_factor_struct
 
   parent::FpMPolyRing
 
@@ -1750,6 +1712,7 @@ mutable struct gfp_fmpz_mpoly_factor
     return z
   end
 end
+@flint_fields gfp_fmpz_mpoly_factor
 
 ###############################################################################
 #
@@ -1764,28 +1727,7 @@ A finite field. Implemented as $\mathbb F_p[t]/f$ for the prime $p$ being an [`I
 See [`FqPolyRepField`](@ref) for $p$ being a [`ZZRingElem`](@ref). See [`fqPolyRepFieldElem`](@ref) for elements.
 """
 @attributes mutable struct fqPolyRepField <: FinField
-  n :: UInt
-  ninv :: UInt
-  norm :: UInt
-  sparse_modulus :: Cint
-  is_conway :: Cint
-  a :: Ptr{UInt} # array of ulong
-  j :: Ptr{Int} # array of slong
-  len :: Int
-  mod_coeffs :: Ptr{UInt} # array of ulong
-  mod_alloc :: Int
-  mod_length :: Int
-  mod_n :: Int
-  mod_ninv :: Int
-  mod_norm :: Int
-  inv_coeffs :: Ptr{UInt} # array of ulong
-  inv_alloc :: Int
-  inv_length :: Int
-  inv_n :: Int
-  inv_ninv :: Int
-  inv_norm :: Int
-  var :: Cstring
-  # end of flint struct
+  cstruct::FlintC.fq_nmod_ctx_struct
 
   overfields :: Dict{Int, Vector{FinFieldMorphism{fqPolyRepField, fqPolyRepField}}}
   subfields :: Dict{Int, Vector{FinFieldMorphism{fqPolyRepField, fqPolyRepField}}}
@@ -1827,6 +1769,24 @@ See [`FqPolyRepField`](@ref) for $p$ being a [`ZZRingElem`](@ref). See [`fqPolyR
   end
 
 end
+@flint_fields fqPolyRepField
+@flint_legacy_fields fqPolyRepField begin
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+  mod_coeffs = cstruct.modulus.coeffs
+  mod_alloc = cstruct.modulus.alloc
+  mod_length = cstruct.modulus.length
+  mod_n = cstruct.modulus.mod.n
+  mod_ninv = cstruct.modulus.mod.ninv
+  mod_norm = cstruct.modulus.mod.norm
+  inv_coeffs = cstruct.inv.coeffs
+  inv_alloc = cstruct.inv.alloc
+  inv_length = cstruct.inv.length
+  inv_n = cstruct.inv.mod.n
+  inv_ninv = cstruct.inv.mod.ninv
+  inv_norm = cstruct.inv.mod.norm
+end
 
 const FqNmodFiniteFieldID = CacheDictType{Tuple{UInt, Int, Symbol}, fqPolyRepField}()
 
@@ -1844,12 +1804,7 @@ An element $\sum_{i=0}^{d-1} a_i t^i$ of a finite field $\mathbb F_{p^d} \cong \
 Represented internally as $(a_i)_{0\le i<d}$. See [`fqPolyRepField`](@ref).
 """
 mutable struct fqPolyRepFieldElem <: FinFieldElem
-  coeffs :: Ptr{UInt} # array of ulong
-  alloc :: Int
-  length :: Int
-  n :: Int
-  ninv :: Int
-  norm :: Int
+  cstruct::FlintC.fq_nmod_struct
   parent::fqPolyRepField
 
   function fqPolyRepFieldElem(ctx::fqPolyRepField)
@@ -1884,6 +1839,12 @@ mutable struct fqPolyRepFieldElem <: FinFieldElem
     return d
   end
 end
+@flint_fields fqPolyRepFieldElem
+@flint_legacy_fields fqPolyRepFieldElem begin
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -1898,12 +1859,7 @@ A finite field. The constructor automatically determines a fast implementation.
 """
 @attributes mutable struct FqField <: FinField
   # gr_ctx_struct
-  data::NTuple{6 * sizeof(UInt), Int8}
-  which_ring::UInt
-  sizeof_elem::Int
-  methods::Ptr{Ptr{Cvoid}} # array of gr_funcptr
-  size_limit::UInt
-  # end of flint struct
+  cstruct::FlintC.gr_ctx_struct
 
   var::String
 
@@ -1988,6 +1944,7 @@ A finite field. The constructor automatically determines a fast implementation.
     end
   end
 end
+@flint_fields FqField
 
 const FqDefaultFiniteFieldID = CacheDictType{Tuple{ZZRingElem, Int, Symbol}, FqField}()
 
@@ -2005,7 +1962,7 @@ const FqDefaultFiniteFieldIDGFPNmodPol = CacheDictType{Tuple{fpPolyRingElem, Sym
 An element of a finite field. See [`FqField`](@ref).
 """
 mutable struct FqFieldElem <: FinFieldElem
-  opaque::NTuple{48, Int8} # fq_default_struct is 48 bytes on a 64 bit machine
+  cstruct::FlintC.fq_default_struct
   parent::FqField
   poly#::Union{Nothing, FqPolyRingElem}
 
@@ -2035,6 +1992,7 @@ mutable struct FqFieldElem <: FinFieldElem
     return d
   end
 end
+@flint_fields FqFieldElem
 
 ###############################################################################
 #
@@ -2049,30 +2007,7 @@ A finite field. Implemented as $\mathbb F_p[t]/f$ for the prime $p$ being a [`ZZ
 See [`fqPolyRepField`](@ref) for $p$ being an [`Int`](@ref). See [`FqPolyRepFieldElem`](@ref) for elements.
 """
 @attributes mutable struct FqPolyRepField <: FinField
-  p::Int # fmpz_t
-  add_fxn::Ptr{Cvoid}
-  sub_fxn::Ptr{Cvoid}
-  mul_fxn::Ptr{Cvoid}
-  n2::UInt
-  ninv::UInt
-  norm::UInt
-  n_limbs::Tuple{UInt, UInt, UInt}
-  ninv_limbs::Tuple{UInt, UInt, UInt}
-  ninv_huge::Ptr{Cvoid} # fmpz_preinvn_struct *
-
-  sparse_modulus :: Cint
-  is_conway :: Cint
-  a::Ptr{ZZRingElem} # array of fmpz
-  j::Ptr{Int} # array of slong
-  len::Int
-  mod_coeffs::Ptr{ZZRingElem} # array of fmpz
-  mod_alloc::Int
-  mod_length::Int
-  inv_coeffs::Ptr{ZZRingElem} # array of fmpz
-  inv_alloc::Int
-  inv_length::Int
-  var::Cstring
-  # end of flint struct
+  cstruct::FlintC.fq_ctx_struct
 
   overfields :: Dict{Int, Vector{FinFieldMorphism{FqPolyRepField, FqPolyRepField}}}
   subfields :: Dict{Int, Vector{FinFieldMorphism{FqPolyRepField, FqPolyRepField}}}
@@ -2109,6 +2044,25 @@ See [`fqPolyRepField`](@ref) for $p$ being an [`Int`](@ref). See [`FqPolyRepFiel
     end
   end
 end
+@flint_fields FqPolyRepField
+@flint_legacy_fields FqPolyRepField begin
+  p = cstruct.ctxp.n
+  add_fxn = cstruct.ctxp.add_fxn
+  sub_fxn = cstruct.ctxp.sub_fxn
+  mul_fxn = cstruct.ctxp.mul_fxn
+  n2 = cstruct.ctxp.mod.n
+  ninv = cstruct.ctxp.mod.ninv
+  norm = cstruct.ctxp.mod.norm
+  n_limbs = cstruct.ctxp.n_limbs
+  ninv_limbs = cstruct.ctxp.ninv_limbs
+  ninv_huge = cstruct.ctxp.ninv_huge
+  mod_coeffs = cstruct.modulus.coeffs
+  mod_alloc = cstruct.modulus.alloc
+  mod_length = cstruct.modulus.length
+  inv_coeffs = cstruct.inv.coeffs
+  inv_alloc = cstruct.inv.alloc
+  inv_length = cstruct.inv.length
+end
 
 
 const FqFiniteFieldID = CacheDictType{Tuple{ZZRingElem, Int, Symbol}, FqPolyRepField}()
@@ -2124,9 +2078,7 @@ An element $\sum_{i=0}^{d-1} a_i t^i$ of a finite field $\mathbb F_{p^d} \cong \
 Represented internally as $(a_i)_{0\le i<d}$. See [`FqPolyRepField`](@ref).
 """
 mutable struct FqPolyRepFieldElem <: FinFieldElem
-  coeffs :: Ptr{ZZRingElem} # array of fmpz
-  alloc :: Int
-  length :: Int
+  cstruct::FlintC.fq_struct
   parent::FqPolyRepField
 
   function FqPolyRepFieldElem(ctx::FqPolyRepField)
@@ -2151,6 +2103,7 @@ mutable struct FqPolyRepFieldElem <: FinFieldElem
     return d
   end
 end
+@flint_fields FqPolyRepFieldElem
 
 
 ###############################################################################
@@ -2160,36 +2113,7 @@ end
 ###############################################################################
 
 @attributes mutable struct fqPolyRepMPolyRing <: MPolyRing{fqPolyRepFieldElem}
-  nvars::Int
-  nfields::Int
-  ord::Cint
-  deg::Cint
-  rev::Cint
-  lut::NTuple{Sys.WORD_SIZE, Int}
-  lut1::NTuple{Sys.WORD_SIZE, UInt8}
-
-  n :: Int
-  ninv :: Int
-  norm :: Int
-  sparse_modulus :: Cint
-  is_conway :: Cint
-  a :: Ptr{UInt} # array of ulong
-  j :: Ptr{Int} # array of slong
-  len :: Int
-  mod_coeffs :: Ptr{UInt} # array of ulong
-  mod_alloc :: Int
-  mod_length :: Int
-  mod_n :: Int
-  mod_ninv :: Int
-  mod_norm :: Int
-  inv_coeffs :: Ptr{UInt} # array of ulong
-  inv_alloc :: Int
-  inv_length :: Int
-  inv_n :: Int
-  inv_ninv :: Int
-  inv_norm :: Int
-  var :: Cstring
-  # end of flint struct
+  cstruct::FlintC.fq_nmod_mpoly_ctx_struct
 
   base_ring::fqPolyRepField
   S::Vector{Symbol}
@@ -2207,17 +2131,42 @@ end
     end
   end
 end
+@flint_fields fqPolyRepMPolyRing
+@flint_legacy_fields fqPolyRepMPolyRing begin
+  nvars = cstruct.minfo.nvars
+  nfields = cstruct.minfo.nfields
+  ord = Cint(cstruct.minfo.ord)
+  deg = cstruct.minfo.deg
+  rev = cstruct.minfo.rev
+  lut = cstruct.minfo.lut_words_per_exp
+  lut1 = cstruct.minfo.lut_fix_bits
+  n = cstruct.fqctx.mod.n
+  ninv = cstruct.fqctx.mod.ninv
+  norm = cstruct.fqctx.mod.norm
+  sparse_modulus = cstruct.fqctx.sparse_modulus
+  is_conway = cstruct.fqctx.is_conway
+  a = cstruct.fqctx.a
+  j = cstruct.fqctx.j
+  len = cstruct.fqctx.len
+  var = cstruct.fqctx.var
+  mod_coeffs = cstruct.fqctx.modulus.coeffs
+  mod_alloc = cstruct.fqctx.modulus.alloc
+  mod_length = cstruct.fqctx.modulus.length
+  mod_n = cstruct.fqctx.modulus.mod.n
+  mod_ninv = cstruct.fqctx.modulus.mod.ninv
+  mod_norm = cstruct.fqctx.modulus.mod.norm
+  inv_coeffs = cstruct.fqctx.inv.coeffs
+  inv_alloc = cstruct.fqctx.inv.alloc
+  inv_length = cstruct.fqctx.inv.length
+  inv_n = cstruct.fqctx.inv.mod.n
+  inv_ninv = cstruct.fqctx.inv.mod.ninv
+  inv_norm = cstruct.fqctx.inv.mod.norm
+end
 
 const FqNmodMPolyID = CacheDictType{Tuple{fqPolyRepField, Vector{Symbol}, Symbol}, fqPolyRepMPolyRing}()
 
 mutable struct fqPolyRepMPolyRingElem <: MPolyRingElem{fqPolyRepFieldElem}
-  coeffs::Ptr{UInt} # array of ulong
-  exps::Ptr{UInt} # array of ulong
-  length::Int
-  bits::Int
-  coeffs_alloc::Int
-  exps_alloc::Int
-  # end of flint struct
+  cstruct::FlintC.fq_nmod_mpoly_struct
 
   parent::fqPolyRepMPolyRing
 
@@ -2286,20 +2235,10 @@ mutable struct fqPolyRepMPolyRingElem <: MPolyRingElem{fqPolyRepFieldElem}
     return z
   end
 end
+@flint_fields fqPolyRepMPolyRingElem
 
 mutable struct fq_nmod_mpoly_factor
-  constant_coeffs::Ptr{UInt} # array of ulong
-  constant_alloc::Int
-  constant_length::Int
-  constant_n::UInt
-  constant_ninv::UInt
-  constant_norm::Int
-
-  poly::Ptr{Cvoid} # array of fq_nmod_mpoly_struct
-  exp::Ptr{ZZRingElem} # array of fmpz
-  num::Int
-  alloc::Int
-  # end flint struct
+  cstruct::FlintC.fq_nmod_mpoly_factor_struct
 
   parent::fqPolyRepMPolyRing
 
@@ -2310,6 +2249,15 @@ mutable struct fq_nmod_mpoly_factor
     finalizer(_fq_nmod_mpoly_factor_clear_fn, z)
     return z
   end
+end
+@flint_fields fq_nmod_mpoly_factor
+@flint_legacy_fields fq_nmod_mpoly_factor begin
+  constant_coeffs = cstruct.constant.coeffs
+  constant_alloc = cstruct.constant.alloc
+  constant_length = cstruct.constant.length
+  constant_n = cstruct.constant.mod.n
+  constant_ninv = cstruct.constant.mod.ninv
+  constant_norm = cstruct.constant.mod.norm
 end
 
 ###############################################################################
@@ -2533,10 +2481,7 @@ end
 const FmpzRelSeriesID = CacheDictType{Tuple{Int, Symbol}, ZZRelPowerSeriesRing}()
 
 mutable struct ZZRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_poly_struct
 
   prec::Int
   val::Int
@@ -2567,6 +2512,7 @@ mutable struct ZZRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZRingElem}
     return z
   end
 end
+@flint_fields ZZRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -2588,9 +2534,7 @@ end
 const FmpzAbsSeriesID = CacheDictType{Tuple{Int, Symbol}, ZZAbsPowerSeriesRing}()
 
 mutable struct ZZAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fmpz_poly_struct
   prec :: Int
   parent::ZZAbsPowerSeriesRing
 
@@ -2618,6 +2562,7 @@ mutable struct ZZAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZRingElem}
     return z
   end
 end
+@flint_fields ZZAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -2693,9 +2638,7 @@ end
 const FmpzLaurentSeriesID = CacheDictType{Tuple{Int, Symbol}, ZZLaurentSeriesRing}()
 
 mutable struct ZZLaurentSeriesRingElem <: RingElem
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fmpz_poly_struct
   prec::Int
   val::Int
   scale::Int
@@ -2727,6 +2670,7 @@ mutable struct ZZLaurentSeriesRingElem <: RingElem
     return z
   end
 end
+@flint_fields ZZLaurentSeriesRingElem
 
 ###############################################################################
 #
@@ -2748,11 +2692,7 @@ end
 const FmpqRelSeriesID = CacheDictType{Tuple{Int, Symbol}, QQRelPowerSeriesRing}()
 
 mutable struct QQRelPowerSeriesRingElem <: RelPowerSeriesRingElem{QQFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  den::Int
-  # end flint struct
+  cstruct::FlintC.fmpq_poly_struct
 
   prec::Int
   val::Int
@@ -2783,6 +2723,7 @@ mutable struct QQRelPowerSeriesRingElem <: RelPowerSeriesRingElem{QQFieldElem}
     return z
   end
 end
+@flint_fields QQRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -2804,11 +2745,7 @@ end
 const FmpqAbsSeriesID = CacheDictType{Tuple{Int, Symbol}, QQAbsPowerSeriesRing}()
 
 mutable struct QQAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{QQFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  den::Int
-  # end flint struct
+  cstruct::FlintC.fmpq_poly_struct
 
   prec :: Int
   parent::QQAbsPowerSeriesRing
@@ -2837,6 +2774,7 @@ mutable struct QQAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{QQFieldElem}
     return z
   end
 end
+@flint_fields QQAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -2861,12 +2799,7 @@ const GFPRelSeriesID = CacheDictType{Tuple{fpField, Int, Symbol},
                                      fpRelPowerSeriesRing}()
 
 mutable struct fpRelPowerSeriesRingElem <: RelPowerSeriesRingElem{fpFieldElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
+  cstruct::FlintC.nmod_poly_struct
   prec::Int
   val::Int
   parent::fpRelPowerSeriesRing
@@ -2925,6 +2858,12 @@ mutable struct fpRelPowerSeriesRingElem <: RelPowerSeriesRingElem{fpFieldElem}
     return z
   end
 end
+@flint_fields fpRelPowerSeriesRingElem
+@flint_legacy_fields fpRelPowerSeriesRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -2949,12 +2888,7 @@ const NmodRelSeriesID = CacheDictType{Tuple{zzModRing, Int, Symbol},
                                       zzModRelPowerSeriesRing}()
 
 mutable struct zzModRelPowerSeriesRingElem <: RelPowerSeriesRingElem{zzModRingElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
+  cstruct::FlintC.nmod_poly_struct
   prec::Int
   val::Int
   parent::zzModRelPowerSeriesRing
@@ -3013,6 +2947,12 @@ mutable struct zzModRelPowerSeriesRingElem <: RelPowerSeriesRingElem{zzModRingEl
     return z
   end
 end
+@flint_fields zzModRelPowerSeriesRingElem
+@flint_legacy_fields zzModRelPowerSeriesRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -3037,10 +2977,7 @@ const GFPFmpzRelSeriesID = CacheDictType{Tuple{FpField, Int, Symbol},
                                          FpRelPowerSeriesRing}()
 
 mutable struct FpRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FpFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   prec::Int
   val::Int
@@ -3105,6 +3042,7 @@ mutable struct FpRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FpFieldElem}
     return z
   end
 end
+@flint_fields FpRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3129,10 +3067,7 @@ const FmpzModRelSeriesID = CacheDictType{Tuple{ZZModRing, Int, Symbol},
                                          ZZModRelPowerSeriesRing}()
 
 mutable struct ZZModRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZModRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   prec::Int
   val::Int
@@ -3197,6 +3132,7 @@ mutable struct ZZModRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZModRingEl
     return z
   end
 end
+@flint_fields ZZModRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3221,10 +3157,7 @@ const GFPFmpzAbsSeriesID = CacheDictType{Tuple{FpField, Int, Symbol},
                                          FpAbsPowerSeriesRing}()
 
 mutable struct FpAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FpFieldElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   prec::Int
   parent::FpAbsPowerSeriesRing
@@ -3283,6 +3216,7 @@ mutable struct FpAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FpFieldElem}
     return z
   end
 end
+@flint_fields FpAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3309,13 +3243,7 @@ const NmodAbsSeriesID = CacheDictType{Tuple{zzModRing, Int, Symbol},
                                       zzModAbsPowerSeriesRing}()
 
 mutable struct zzModAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{zzModRingElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
-  # end of flint struct
+  cstruct::FlintC.nmod_poly_struct
 
   prec::Int
   parent::zzModAbsPowerSeriesRing
@@ -3371,6 +3299,12 @@ mutable struct zzModAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{zzModRingEl
     return z
   end
 end
+@flint_fields zzModAbsPowerSeriesRingElem
+@flint_legacy_fields zzModAbsPowerSeriesRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -3397,13 +3331,7 @@ const GFPAbsSeriesID = CacheDictType{Tuple{fpField, Int, Symbol},
                                      fpAbsPowerSeriesRing}()
 
 mutable struct fpAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{fpFieldElem}
-  coeffs::Ptr{UInt} # array of ulong
-  alloc::Int
-  length::Int
-  mod_n::UInt
-  mod_ninv::UInt
-  mod_norm::UInt
-  # end of flint struct
+  cstruct::FlintC.nmod_poly_struct
 
   prec::Int
   parent::fpAbsPowerSeriesRing
@@ -3459,6 +3387,12 @@ mutable struct fpAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{fpFieldElem}
     return z
   end
 end
+@flint_fields fpAbsPowerSeriesRingElem
+@flint_legacy_fields fpAbsPowerSeriesRingElem begin
+  mod_n = cstruct.mod.n
+  mod_ninv = cstruct.mod.ninv
+  mod_norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -3483,10 +3417,7 @@ const FmpzModAbsSeriesID = CacheDictType{Tuple{ZZModRing, Int, Symbol},
                                          ZZModAbsPowerSeriesRing}()
 
 mutable struct ZZModAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZModRingElem}
-  coeffs::Ptr{ZZRingElem} # array of fmpz
-  alloc::Int
-  length::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_poly_struct
 
   prec::Int
   parent::ZZModAbsPowerSeriesRing
@@ -3546,6 +3477,7 @@ mutable struct ZZModAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZModRingEl
     return z
   end
 end
+@flint_fields ZZModAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3570,8 +3502,7 @@ const FqDefaultRelSeriesID = CacheDictType{Tuple{FqField, Int, Symbol}, FqRelPow
 
 mutable struct FqRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FqFieldElem}
   # fq_default_poly_struct is 48 bytes on 64 bit machine
-  opaque::NTuple{48, Int8}
-  # end of flint struct
+  cstruct::FlintC.fq_default_poly_struct
 
   prec::Int
   val::Int
@@ -3604,6 +3535,7 @@ mutable struct FqRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FqFieldElem}
     return z
   end
 end
+@flint_fields FqRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3627,9 +3559,7 @@ end
 const FqRelSeriesID = CacheDictType{Tuple{FqPolyRepField, Int, Symbol}, FqPolyRepRelPowerSeriesRing}()
 
 mutable struct FqPolyRepRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_poly_struct
   prec::Int
   val::Int
   parent::FqPolyRepRelPowerSeriesRing
@@ -3661,6 +3591,7 @@ mutable struct FqPolyRepRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FqPolyR
     return z
   end
 end
+@flint_fields FqPolyRepRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3685,8 +3616,7 @@ const FqDefaultAbsSeriesID = CacheDictType{Tuple{FqField, Int, Symbol}, FqAbsPow
 
 mutable struct FqAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FqFieldElem}
   # fq_default_poly_struct is 48 bytes on 64 bit machine
-  opaque::NTuple{48, Int8}
-  # end of flint struct
+  cstruct::FlintC.fq_default_poly_struct
 
   prec::Int
   parent::FqAbsPowerSeriesRing
@@ -3717,6 +3647,7 @@ mutable struct FqAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FqFieldElem}
     return z
   end
 end
+@flint_fields FqAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3740,9 +3671,7 @@ end
 const FqAbsSeriesID = CacheDictType{Tuple{FqPolyRepField, Int, Symbol}, FqPolyRepAbsPowerSeriesRing}()
 
 mutable struct FqPolyRepAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_poly_struct
   prec::Int
   parent::FqPolyRepAbsPowerSeriesRing
 
@@ -3772,6 +3701,7 @@ mutable struct FqPolyRepAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FqPolyR
     return z
   end
 end
+@flint_fields FqPolyRepAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3796,9 +3726,7 @@ const FqNmodRelSeriesID = CacheDictType{Tuple{fqPolyRepField, Int, Symbol},
                                         fqPolyRepRelPowerSeriesRing}()
 
 mutable struct fqPolyRepRelPowerSeriesRingElem <: RelPowerSeriesRingElem{fqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_nmod_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_nmod_poly_struct
   prec::Int
   val::Int
   parent::fqPolyRepRelPowerSeriesRing
@@ -3830,6 +3758,7 @@ mutable struct fqPolyRepRelPowerSeriesRingElem <: RelPowerSeriesRingElem{fqPolyR
     return z
   end
 end
+@flint_fields fqPolyRepRelPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3854,9 +3783,7 @@ const FqNmodAbsSeriesID = CacheDictType{Tuple{fqPolyRepField, Int, Symbol},
                                         fqPolyRepAbsPowerSeriesRing}()
 
 mutable struct fqPolyRepAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{fqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_nmod_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_nmod_poly_struct
   prec::Int
   parent::fqPolyRepAbsPowerSeriesRing
 
@@ -3886,6 +3813,7 @@ mutable struct fqPolyRepAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{fqPolyR
     return z
   end
 end
+@flint_fields fqPolyRepAbsPowerSeriesRingElem
 
 ###############################################################################
 #
@@ -3898,10 +3826,7 @@ const QQMatrixSpace = AbstractAlgebra.Generic.MatSpace{QQFieldElem}
 QQMatrixSpace(r::Int, c::Int) = QQMatrixSpace(QQ, r, c)
 
 mutable struct QQMatrix <: FlintMatElem{QQFieldElem}
-  entries::Ptr{QQFieldElem}
-  r::Int
-  c::Int
-  stride::Int
+  cstruct::FlintC.fmpq_mat_struct
   view_parent
 
   # MatElem interface
@@ -3926,6 +3851,7 @@ mutable struct QQMatrix <: FlintMatElem{QQFieldElem}
     return z
   end
 end
+@flint_fields QQMatrix entries = Ptr{QQFieldElem}
 
 ###############################################################################
 #
@@ -3964,20 +3890,7 @@ mutable struct ZZMatrix <: FlintMatElem{ZZRingElem}
   end
 end
 
-# The C fields stay reachable as `x.r` etc. `entries` keeps Nemo's
-# `Ptr{ZZRingElem}` spelling of `fmpz*`.
-const _fmpz_mat_fields = fieldnames(FlintC.fmpz_mat_struct)
-
-@inline function Base.getproperty(x::ZZMatrix, s::Symbol)
-  s === :entries && return Ptr{ZZRingElem}(getfield(x, :cstruct).entries)
-  s in _fmpz_mat_fields && return getproperty(getfield(x, :cstruct), s)
-  return getfield(x, s)
-end
-
-@inline function Base.setproperty!(x::ZZMatrix, s::Symbol, v)
-  s in _fmpz_mat_fields && return setfield!(x, :cstruct, _setfield(getfield(x, :cstruct), s, v))
-  return setfield!(x, s, v)
-end
+@flint_fields ZZMatrix entries = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -3986,11 +3899,7 @@ end
 ###############################################################################
 
 mutable struct ZZPolyRingMatrix <: FlintMatElem{ZZPolyRingElem}
-  entries::Ptr{ZZPolyRingElem}
-  r::Int
-  c::Int
-  stride::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_poly_mat_struct
   base_ring::ZZPolyRing
   view_parent
 
@@ -4021,6 +3930,7 @@ mutable struct ZZPolyRingMatrix <: FlintMatElem{ZZPolyRingElem}
     return z
   end
 end
+@flint_fields ZZPolyRingMatrix entries = Ptr{ZZPolyRingElem}
 
 ###############################################################################
 #
@@ -4031,13 +3941,7 @@ end
 const zzModMatrixSpace = AbstractAlgebra.Generic.MatSpace{zzModRingElem}
 
 mutable struct zzModMatrix <: FlintMatElem{zzModRingElem}
-  entries::Ptr{UInt}
-  r::Int                  # Int
-  c::Int                  # Int
-  stride::Int
-  n::UInt                # mp_limb_t / Culong
-  ninv::UInt             # mp_limb_t / Culong
-  norm::UInt             # mp_limb_t / Culong
+  cstruct::FlintC.nmod_mat_struct
   base_ring::zzModRing
   view_parent
 
@@ -4159,6 +4063,12 @@ mutable struct zzModMatrix <: FlintMatElem{zzModRingElem}
     return zzModMatrix(UInt(n), b)
   end
 end
+@flint_fields zzModMatrix entries = Ptr{UInt}
+@flint_legacy_fields zzModMatrix begin
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+end
 
 ###############################################################################
 #
@@ -4169,11 +4079,7 @@ end
 const ZZModMatrixSpace = AbstractAlgebra.Generic.MatSpace{ZZModRingElem}
 
 mutable struct ZZModMatrix <: FlintMatElem{ZZModRingElem}
-  entries::Ptr{ZZRingElem}
-  r::Int
-  c::Int
-  stride::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_mat_struct
 
   base_ring::ZZModRing
   view_parent
@@ -4305,6 +4211,7 @@ mutable struct ZZModMatrix <: FlintMatElem{ZZModRingElem}
     return z
   end
 end
+@flint_fields ZZModMatrix entries = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -4315,11 +4222,7 @@ end
 const FpMatrixSpace = AbstractAlgebra.Generic.MatSpace{FpFieldElem}
 
 mutable struct FpMatrix <: FlintMatElem{FpFieldElem}
-  entries::Ptr{ZZRingElem}
-  r::Int
-  c::Int
-  stride::Int
-  # end flint struct
+  cstruct::FlintC.fmpz_mod_mat_struct
 
   base_ring::FpField
   view_parent
@@ -4405,6 +4308,7 @@ mutable struct FpMatrix <: FlintMatElem{FpFieldElem}
     return z
   end
 end
+@flint_fields FpMatrix entries = Ptr{ZZRingElem}
 
 ################################################################################
 #
@@ -4415,13 +4319,7 @@ end
 const fpMatrixSpace = AbstractAlgebra.Generic.MatSpace{fpFieldElem}
 
 mutable struct fpMatrix <: FlintMatElem{fpFieldElem}
-  entries::Ptr{UInt}
-  r::Int                  # Int
-  c::Int                  # Int
-  stride::Int
-  n::UInt                # mp_limb_t / Culong
-  ninv::UInt             # mp_limb_t / Culong
-  norm::UInt             # mp_limb_t / Culong
+  cstruct::FlintC.nmod_mat_struct
   base_ring::fpField
   view_parent
 
@@ -4543,6 +4441,12 @@ mutable struct fpMatrix <: FlintMatElem{fpFieldElem}
     return fpMatrix(UInt(n), b)
   end
 end
+@flint_fields fpMatrix entries = Ptr{UInt}
+@flint_legacy_fields fpMatrix begin
+  n = cstruct.mod.n
+  ninv = cstruct.mod.ninv
+  norm = cstruct.mod.norm
+end
 
 # Copying the ring's `nmod_t` avoids recomputing `ninv` in `nmod_mat_set_mod`.
 function _set_mod!(z::Union{zzModMatrix, fpMatrix}, R::Union{zzModRing, fpField})
@@ -4578,8 +4482,7 @@ const FqDefaultPolyID = CacheDictType{Tuple{FqField, Symbol}, FqPolyRing}()
 
 mutable struct FqPolyRingElem <: PolyRingElem{FqFieldElem}
   # fq_default_poly_struct is 48 bytes on 64 bit machine
-  opaque::NTuple{48, Int8}
-  # end of flint struct
+  cstruct::FlintC.fq_default_poly_struct
 
   parent::FqPolyRing
 
@@ -4668,11 +4571,11 @@ mutable struct FqPolyRingElem <: PolyRingElem{FqFieldElem}
     return z
   end
 end
+@flint_fields FqPolyRingElem
 
 mutable struct fq_default_poly_factor
   # fq_default_ctx_struct is 32 bytes on 64 bit machine
-  opaque::NTuple{32, Int8}
-  # end of flint struct
+  cstruct::FlintC.fq_default_poly_factor_struct
   base_field::FqField
 
   function fq_default_poly_factor(ctx::FqField)
@@ -4683,6 +4586,7 @@ mutable struct fq_default_poly_factor
     return z
   end
 end
+@flint_fields fq_default_poly_factor
 
 ###############################################################################
 #
@@ -4704,9 +4608,7 @@ end
 const FqPolyID = CacheDictType{Tuple{FqPolyRepField, Symbol}, FqPolyRepPolyRing}()
 
 mutable struct FqPolyRepPolyRingElem <: PolyRingElem{FqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_poly_struct
   parent::FqPolyRepPolyRing
 
   function FqPolyRepPolyRingElem()
@@ -4769,12 +4671,10 @@ mutable struct FqPolyRepPolyRingElem <: PolyRingElem{FqPolyRepFieldElem}
     return z
   end
 end
+@flint_fields FqPolyRepPolyRingElem
 
 mutable struct fq_poly_factor
-  poly::Ptr{FqPolyRepPolyRingElem}
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
+  cstruct::FlintC.fq_poly_factor_struct
   base_field::FqPolyRepField
 
   function fq_poly_factor(ctx::FqPolyRepField)
@@ -4785,6 +4685,7 @@ mutable struct fq_poly_factor
     return z
   end
 end
+@flint_fields fq_poly_factor poly = Ptr{FqPolyRepPolyRingElem}
 
 ###############################################################################
 #
@@ -4806,9 +4707,7 @@ end
 const FqNmodPolyID = CacheDictType{Tuple{fqPolyRepField, Symbol}, fqPolyRepPolyRing}()
 
 mutable struct fqPolyRepPolyRingElem <: PolyRingElem{fqPolyRepFieldElem}
-  coeffs::Ptr{Cvoid} # array of fq_nmod_struct
-  alloc::Int
-  length::Int
+  cstruct::FlintC.fq_nmod_poly_struct
   parent::fqPolyRepPolyRing
 
   function fqPolyRepPolyRingElem()
@@ -4871,12 +4770,10 @@ mutable struct fqPolyRepPolyRingElem <: PolyRingElem{fqPolyRepFieldElem}
     return z
   end
 end
+@flint_fields fqPolyRepPolyRingElem
 
 mutable struct fq_nmod_poly_factor
-  poly::Ptr{fqPolyRepPolyRingElem}
-  exp::Ptr{Int}
-  num::Int
-  alloc::Int
+  cstruct::FlintC.fq_nmod_poly_factor_struct
   base_field::fqPolyRepField
 
   function fq_nmod_poly_factor(ctx::fqPolyRepField)
@@ -4887,6 +4784,7 @@ mutable struct fq_nmod_poly_factor
     return z
   end
 end
+@flint_fields fq_nmod_poly_factor poly = Ptr{fqPolyRepPolyRingElem}
 
 ###############################################################################
 #
@@ -4899,12 +4797,7 @@ const FqMatrixSpace = AbstractAlgebra.Generic.MatSpace{FqFieldElem}
 mutable struct FqMatrix <: FlintMatElem{FqFieldElem}
   # fq_default_mat_struct is a union of FLINT matrix structs. They all start
   # with these four fields; nmod_mat_struct, the largest, has three more words.
-  entries::Ptr{FqFieldElem}
-  r::Int
-  c::Int
-  stride::Int
-  opaque::NTuple{3, UInt}
-  # end of flint struct
+  cstruct::FlintC.fq_default_mat_struct
 
   base_ring::FqField
   view_parent
@@ -4994,6 +4887,21 @@ mutable struct FqMatrix <: FlintMatElem{FqFieldElem}
     return z
   end
 end
+@flint_fields FqMatrix
+@flint_extra_fields FqMatrix begin
+  entries = Ptr{FqFieldElem}(_union_word(cstruct, 1))
+  entries! = _set_union_word(cstruct, 1, v)
+  r = _union_word(cstruct, 2) % Int
+  r! = _set_union_word(cstruct, 2, v)
+  c = _union_word(cstruct, 3) % Int
+  c! = _set_union_word(cstruct, 3, v)
+  stride = _union_word(cstruct, 4) % Int
+  stride! = _set_union_word(cstruct, 4, v)
+end
+@flint_legacy_fields FqMatrix begin
+  opaque = cstruct.uniondata[5:7]
+  opaque! = _setfield(cstruct, :uniondata, (cstruct.uniondata[1:4]..., v...))
+end
 
 ###############################################################################
 #
@@ -5004,10 +4912,7 @@ end
 const FqPolyRepMatrixSpace = AbstractAlgebra.Generic.MatSpace{FqPolyRepFieldElem}
 
 mutable struct FqPolyRepMatrix <: FlintMatElem{FqPolyRepFieldElem}
-  entries::Ptr{FqPolyRepFieldElem}
-  r::Int
-  c::Int
-  stride::Int
+  cstruct::FlintC.fq_mat_struct
   base_ring::FqPolyRepField
   view_parent
 
@@ -5071,6 +4976,7 @@ mutable struct FqPolyRepMatrix <: FlintMatElem{FqPolyRepFieldElem}
     return z
   end
 end
+@flint_fields FqPolyRepMatrix entries = Ptr{FqPolyRepFieldElem}
 
 ###############################################################################
 #
@@ -5081,10 +4987,7 @@ end
 const fqPolyRepMatrixSpace = AbstractAlgebra.Generic.MatSpace{fqPolyRepFieldElem}
 
 mutable struct fqPolyRepMatrix <: FlintMatElem{fqPolyRepFieldElem}
-  entries::Ptr{fqPolyRepFieldElem}
-  r::Int
-  c::Int
-  stride::Int
+  cstruct::FlintC.fq_nmod_mat_struct
   base_ring::fqPolyRepField
   view_parent
 
@@ -5148,6 +5051,7 @@ mutable struct fqPolyRepMatrix <: FlintMatElem{fqPolyRepFieldElem}
     return z
   end
 end
+@flint_fields fqPolyRepMatrix entries = Ptr{fqPolyRepFieldElem}
 
 ################################################################################
 #
@@ -5156,9 +5060,7 @@ end
 ################################################################################
 
 mutable struct rand_ctx
-  gmp_state::Ptr{Cvoid}
-  randval::UInt
-  randval2::UInt
+  cstruct::FlintC.flint_rand_struct
 
   function rand_ctx()
     a = new()
@@ -5166,6 +5068,12 @@ mutable struct rand_ctx
     finalizer(_rand_ctx_clear_fn, a)
     return a
   end
+end
+@flint_fields rand_ctx
+@flint_legacy_fields rand_ctx begin
+  gmp_state = cstruct.__gmp_state
+  randval = cstruct.__randval
+  randval2 = cstruct.__randval2
 end
 
 ###############################################################################
