@@ -33,6 +33,8 @@ _stride(a::Ptr{<:FlintMatElem}) = _unsafe_load_field(a, Val(:stride))
 # For FqMatrix it depends on the base ring, so there is none for the type:
 # `_entry_size(::FqField)` gives it, FqMatrix has a `mat_entry_ptr` method of
 # its own and no entry pointers through a `Ref` or `Ptr`.
+_entry_size(::Type{T}) where {T <: FlintMatElem} = sizeof(eltype(fieldtype(fieldtype(T, :cstruct), :entries)))
+
 function mat_entry_ptr(A::TypeOrPtr{T}, i::Int, j::Int) where {T <: FlintMatElem}
   return _entries(A) + ((i - 1) * _stride(A) + (j - 1)) * _entry_size(T)
 end
