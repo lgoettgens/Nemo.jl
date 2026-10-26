@@ -112,7 +112,7 @@ mutable struct fmpz_factor
     return z
   end
 end
-@flint_fields fmpz_factor
+@flint_fields fmpz_factor p = Ptr{ZZRingElem}
 
 struct ZZRingElemUnitRange <: AbstractUnitRange{ZZRingElem}
   start::ZZRingElem
@@ -342,7 +342,7 @@ mutable struct ZZPolyRingElem <: PolyRingElem{ZZRingElem}
     return z
   end
 end
-@flint_fields ZZPolyRingElem
+@flint_fields ZZPolyRingElem coeffs = Ptr{ZZRingElem}
 
 mutable struct fmpz_poly_factor
   cstruct::FlintC.fmpz_poly_factor_struct
@@ -410,7 +410,7 @@ mutable struct QQPolyRingElem <: PolyRingElem{QQFieldElem}
     return z
   end
 end
-@flint_fields QQPolyRingElem
+@flint_fields QQPolyRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -929,7 +929,7 @@ mutable struct ZZModPolyRingElem <: PolyRingElem{ZZModRingElem}
     return z
   end
 end
-@flint_fields ZZModPolyRingElem
+@flint_fields ZZModPolyRingElem coeffs = Ptr{ZZRingElem}
 
 mutable struct fmpz_mod_poly_factor
   cstruct::FlintC.fmpz_mod_poly_factor_struct
@@ -1040,7 +1040,7 @@ mutable struct FpPolyRingElem <: PolyRingElem{FpFieldElem}
     return z
   end
 end
-@flint_fields FpPolyRingElem
+@flint_fields FpPolyRingElem coeffs = Ptr{ZZRingElem}
 
 mutable struct gfp_fmpz_poly_factor
   cstruct::FlintC.fmpz_mod_poly_factor_struct
@@ -1193,7 +1193,7 @@ mutable struct ZZMPolyRingElem <: MPolyRingElem{ZZRingElem}
   ZZMPolyRingElem(ctx::ZZMPolyRing, a::ZZRingElem) = set!(ZZMPolyRingElem(ctx), a)
   ZZMPolyRingElem(ctx::ZZMPolyRing, a::Integer) = set!(ZZMPolyRingElem(ctx), a)
 end
-@flint_fields ZZMPolyRingElem
+@flint_fields ZZMPolyRingElem coeffs = Ptr{ZZRingElem}
 
 mutable struct fmpz_mpoly_factor
   cstruct::FlintC.fmpz_mpoly_factor_struct
@@ -1208,7 +1208,7 @@ mutable struct fmpz_mpoly_factor
     return z
   end
 end
-@flint_fields fmpz_mpoly_factor
+@flint_fields fmpz_mpoly_factor exp = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -1317,7 +1317,7 @@ end
 @flint_legacy_fields QQMPolyRingElem begin
   content_num = cstruct.content.num
   content_den = cstruct.content.den
-  coeffs = cstruct.zpoly.coeffs
+  coeffs = Ptr{ZZRingElem}(cstruct.zpoly.coeffs)
   exps = cstruct.zpoly.exps
   alloc = cstruct.zpoly.alloc
   length = cstruct.zpoly.length
@@ -1337,7 +1337,7 @@ mutable struct fmpq_mpoly_factor
     return z
   end
 end
-@flint_fields fmpq_mpoly_factor
+@flint_fields fmpq_mpoly_factor exp = Ptr{ZZRingElem}
 @flint_legacy_fields fmpq_mpoly_factor begin
   constant_num = cstruct.constant.num
   constant_den = cstruct.constant.den
@@ -1471,7 +1471,7 @@ mutable struct nmod_mpoly_factor
     return z
   end
 end
-@flint_fields nmod_mpoly_factor
+@flint_fields nmod_mpoly_factor exp = Ptr{ZZRingElem}
 
 ################################################################################
 #
@@ -1601,7 +1601,7 @@ mutable struct gfp_mpoly_factor
     return z
   end
 end
-@flint_fields gfp_mpoly_factor
+@flint_fields gfp_mpoly_factor exp = Ptr{ZZRingElem}
 
 ################################################################################
 #
@@ -1690,7 +1690,7 @@ mutable struct FpMPolyRingElem <: MPolyRingElem{FpFieldElem}
     return z
   end
 end
-@flint_fields FpMPolyRingElem
+@flint_fields FpMPolyRingElem coeffs = Ptr{ZZRingElem}
 
 mutable struct gfp_fmpz_mpoly_factor
   cstruct::FlintC.fmpz_mod_mpoly_factor_struct
@@ -1705,7 +1705,7 @@ mutable struct gfp_fmpz_mpoly_factor
     return z
   end
 end
-@flint_fields gfp_fmpz_mpoly_factor
+@flint_fields gfp_fmpz_mpoly_factor exp = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -2037,7 +2037,7 @@ See [`fqPolyRepField`](@ref) for $p$ being an [`Int`](@ref). See [`FqPolyRepFiel
     end
   end
 end
-@flint_fields FqPolyRepField
+@flint_fields FqPolyRepField a = Ptr{ZZRingElem}
 @flint_legacy_fields FqPolyRepField begin
   p = cstruct.ctxp.n
   add_fxn = cstruct.ctxp.add_fxn
@@ -2049,10 +2049,10 @@ end
   n_limbs = cstruct.ctxp.n_limbs
   ninv_limbs = cstruct.ctxp.ninv_limbs
   ninv_huge = cstruct.ctxp.ninv_huge
-  mod_coeffs = cstruct.modulus.coeffs
+  mod_coeffs = Ptr{ZZRingElem}(cstruct.modulus.coeffs)
   mod_alloc = cstruct.modulus.alloc
   mod_length = cstruct.modulus.length
-  inv_coeffs = cstruct.inv.coeffs
+  inv_coeffs = Ptr{ZZRingElem}(cstruct.inv.coeffs)
   inv_alloc = cstruct.inv.alloc
   inv_length = cstruct.inv.length
 end
@@ -2096,7 +2096,7 @@ mutable struct FqPolyRepFieldElem <: FinFieldElem
     return d
   end
 end
-@flint_fields FqPolyRepFieldElem
+@flint_fields FqPolyRepFieldElem coeffs = Ptr{ZZRingElem}
 
 
 ###############################################################################
@@ -2243,7 +2243,7 @@ mutable struct fq_nmod_mpoly_factor
     return z
   end
 end
-@flint_fields fq_nmod_mpoly_factor
+@flint_fields fq_nmod_mpoly_factor exp = Ptr{ZZRingElem}
 @flint_legacy_fields fq_nmod_mpoly_factor begin
   constant_coeffs = cstruct.constant.coeffs
   constant_alloc = cstruct.constant.alloc
@@ -2505,7 +2505,7 @@ mutable struct ZZRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZRingElem}
     return z
   end
 end
-@flint_fields ZZRelPowerSeriesRingElem
+@flint_fields ZZRelPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -2555,7 +2555,7 @@ mutable struct ZZAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZRingElem}
     return z
   end
 end
-@flint_fields ZZAbsPowerSeriesRingElem
+@flint_fields ZZAbsPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -2663,7 +2663,7 @@ mutable struct ZZLaurentSeriesRingElem <: RingElem
     return z
   end
 end
-@flint_fields ZZLaurentSeriesRingElem
+@flint_fields ZZLaurentSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -2716,7 +2716,7 @@ mutable struct QQRelPowerSeriesRingElem <: RelPowerSeriesRingElem{QQFieldElem}
     return z
   end
 end
-@flint_fields QQRelPowerSeriesRingElem
+@flint_fields QQRelPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -2767,7 +2767,7 @@ mutable struct QQAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{QQFieldElem}
     return z
   end
 end
-@flint_fields QQAbsPowerSeriesRingElem
+@flint_fields QQAbsPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -3035,7 +3035,7 @@ mutable struct FpRelPowerSeriesRingElem <: RelPowerSeriesRingElem{FpFieldElem}
     return z
   end
 end
-@flint_fields FpRelPowerSeriesRingElem
+@flint_fields FpRelPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -3125,7 +3125,7 @@ mutable struct ZZModRelPowerSeriesRingElem <: RelPowerSeriesRingElem{ZZModRingEl
     return z
   end
 end
-@flint_fields ZZModRelPowerSeriesRingElem
+@flint_fields ZZModRelPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -3209,7 +3209,7 @@ mutable struct FpAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{FpFieldElem}
     return z
   end
 end
-@flint_fields FpAbsPowerSeriesRingElem
+@flint_fields FpAbsPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
@@ -3470,7 +3470,7 @@ mutable struct ZZModAbsPowerSeriesRingElem <: AbsPowerSeriesRingElem{ZZModRingEl
     return z
   end
 end
-@flint_fields ZZModAbsPowerSeriesRingElem
+@flint_fields ZZModAbsPowerSeriesRingElem coeffs = Ptr{ZZRingElem}
 
 ###############################################################################
 #
