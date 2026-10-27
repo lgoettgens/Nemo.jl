@@ -59,8 +59,7 @@ _unwrap_type(::Type{T}) where {T} = T
 # on read, e.g. `entries = Ptr{ZZRingElem}` for Nemo's spelling of `fmpz*`.
 macro flint_fields(T, conversions...)
   branches = map(conversions) do c
-    Meta.isexpr(c, :(=), 2) || error("expected `field = Type`, got `$c`")
-    f, ty = c.args
+    @capture(c, f_ = ty_) || error("expected `field = Type`, got `$c`")
     :(s === $(QuoteNode(f)) && return $(esc(ty))(getfield(getfield(x, :cstruct), $(QuoteNode(f)))))
   end
   cfields = esc(Symbol("_", T, "_cfields"))
@@ -118,26 +117,25 @@ _asword(v::Ptr) = UInt(v)
 _asword(v::Integer) = v % UInt
 
 # `cstruct` in a property expression stands for the C struct
-_subst_cstruct(ex) = ex === :cstruct ? :(getfield(x, :cstruct)) : ex isa Expr ? Expr(ex.head, map(_subst_cstruct, ex.args)...) : ex
+_subst_cstruct(ex) = postwalk(e -> e === :cstruct ? :(getfield(x, :cstruct)) : e, ex)
 
 # `cstruct.a.b` as `(:a, :b)`, or nothing
 function _field_path(ex)
   ex === :cstruct && return ()
-  Meta.isexpr(ex, :., 2) && ex.args[2] isa QuoteNode || return nothing
-  inner = _field_path(ex.args[1])
-  return inner === nothing ? nothing : (inner..., ex.args[2].value)
+  @capture(ex, inner_.field_) || return nothing
+  path = _field_path(inner)
+  return path === nothing ? nothing : (path..., field)
 end
 
 function _property_defs(T, pairs, namesfun)
   if length(pairs) == 1 && Meta.isexpr(pairs[1], :block)
-    pairs = filter(a -> !(a isa LineNumberNode), pairs[1].args)
+    pairs = rmlines(pairs[1]).args
   end
   defs = Expr[]
   names = Symbol[]
   setters = Base.Set{Symbol}()
   for c in pairs
-    Meta.isexpr(c, :(=), 2) || error("expected `name = expr`, got `$c`")
-    name, ex = c.args
+    @capture(c, name_ = ex_) || error("expected `name = expr`, got `$c`")
     if endswith(string(name), "!")
       name = Symbol(chop(string(name)))
       push!(setters, name)
@@ -148,7 +146,7 @@ function _property_defs(T, pairs, namesfun)
     push!(defs, :(@inline $(esc(:_extra_property))($(esc(:x))::$(esc(T)), ::Val{$(QuoteNode(name))}) = $(esc(_subst_cstruct(ex)))))
     pth = _field_path(ex)
     # a conversion around a path, `Ptr{T}(cstruct.a.b)`, keeps the location
-    cpth = pth !== nothing ? pth : Meta.isexpr(ex, :call, 2) ? _field_path(ex.args[2]) : nothing
+    cpth = pth !== nothing ? pth : @capture(ex, f_(inner_)) ? _field_path(inner) : nothing
     cpth === nothing || push!(defs, :($(esc(:_cfield_path))(::Type{$(esc(T))}, ::Val{$(QuoteNode(name))}) = $(Tuple(cpth))))
     if pth !== nothing && !isempty(pth) && !(name in setters)
       push!(setters, name)
