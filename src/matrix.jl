@@ -74,7 +74,7 @@ end
 # The words after the window header belong to the ring, e.g. the modulus
 # of an `nmod_mat`.
 function _set_ring!(z::FqMatrix, x::FqMatrix)
-  z.cstruct = _setfield(z.cstruct, :uniondata, (z.cstruct.uniondata[1:4]..., x.cstruct.uniondata[5:end]...))
+  _copy_union_words!(z, x; from = 5)
   z.base_ring = x.base_ring
   return z
 end
