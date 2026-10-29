@@ -482,6 +482,9 @@ Implementation for $p$ being a machine integer [`Int`](@ref).
 end
 @flint_fields fpField
 
+# the C struct of both prime rings is an `nmod_t`
+nmod_t(R::Union{zzModRing, fpField}) = R.cstruct
+
 const GaloisFieldID = CacheDictType{UInt, fpField}()
 
 @doc raw"""

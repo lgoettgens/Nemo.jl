@@ -172,8 +172,6 @@ function -(x::zzModRingElem, y::zzModRingElem)
   end
 end
 
-nmod_t(R::Union{zzModRing, fpField}) = R.cstruct
-
 function nmod_t(n::UInt)
   m = Ref{nmod_t}()
   @ccall libflint.nmod_init(m::Ref{nmod_t}, n::UInt)::Nothing
