@@ -73,6 +73,14 @@ methods. The path is relative to [`_cstruct_type`](@ref)`(T)`.
 _cfield_path(::Type{T}, ::Val{name}) where {T, name} = (name,)
 
 """
+    _cfieldtype(::Type{T}, name::Symbol)
+
+Return the type of the C field `name` of `T`, i.e. of the field `name` of
+[`_cstruct_type`](@ref)`(T)`.
+"""
+_cfieldtype(::Type{T}, name::Symbol) where {T} = fieldtype(_cstruct_type(T), name)
+
+"""
     _path_offset(::Type{T}, path)
     _path_type(::Type{T}, path)
 
