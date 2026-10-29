@@ -13,6 +13,47 @@ _wrap(::Type{Tuple{T}}, v::Tuple{T}) where {T} = v
 _wrap(::Type{Tuple{T}}, v) where {T} = (convert(T, v),)
 _wrap(::Type, v) = v
 
+"""
+    _cstruct_type(::Type{T})
+
+Return the type of the C struct behind `T`.
+
+That is the type of the `cstruct` field, or `T` itself for a type without
+one, such as a generated struct or `BigInt`.
+"""
+_cstruct_type(::Type{T}) where {T} = hasfield(T, :cstruct) ? fieldtype(T, :cstruct) : T
+
+"""
+    _cfield_path(::Type{T}, ::Val{name})
+
+Return the C fields leading to property `name` of `T`, as a tuple of symbols.
+
+That is `(name,)` for a C field, and the declared path for an extra or
+legacy property defined by a plain field path; the macros define those
+methods. The path is relative to [`_cstruct_type`](@ref)`(T)`.
+"""
+_cfield_path(::Type{T}, ::Val{name}) where {T, name} = (name,)
+
+"""
+    _path_offset(::Type{T}, path)
+    _path_type(::Type{T}, path)
+
+Return the byte offset and the type of the nested field `path` of the C
+struct `T`, a tuple of symbols as returned by [`_cfield_path`](@ref).
+
+A singleton array field is entered at its element.
+"""
+@inline function _path_offset(::Type{T}, path::Tuple{Symbol, Vararg{Symbol}}) where {T}
+  i = Base.fieldindex(T, first(path))
+  return fieldoffset(T, i) + _path_offset(_unwrap_type(fieldtype(T, i)), Base.tail(path))
+end
+@inline _path_offset(::Type, ::Tuple{}) = 0
+@inline _path_type(::Type{T}, path::Tuple{Symbol, Vararg{Symbol}}) where {T} =
+  _path_type(_unwrap_type(fieldtype(T, first(path))), Base.tail(path))
+@inline _path_type(::Type{T}, ::Tuple{}) where {T} = T
+_unwrap_type(::Type{Tuple{T}}) where {T} = T
+_unwrap_type(::Type{T}) where {T} = T
+
 # `@flint_fields T [f = JuliaType ...]` forwards `x.f` and `x.f = v` to the
 # fields of `x.cstruct::FlintStruct`. A `f = JuliaType` pair converts that field
 # on read, e.g. `entries = Ptr{ZZRingElem}` for Nemo's spelling of `fmpz*`.
@@ -106,6 +147,9 @@ function _property_defs(T, pairs, namesfun)
     push!(names, name)
     push!(defs, :(@inline $(esc(:_extra_property))($(esc(:x))::$(esc(T)), ::Val{$(QuoteNode(name))}) = $(esc(_subst_cstruct(ex)))))
     pth = _field_path(ex)
+    # a conversion around a path, `Ptr{T}(cstruct.a.b)`, keeps the location
+    cpth = pth !== nothing ? pth : Meta.isexpr(ex, :call, 2) ? _field_path(ex.args[2]) : nothing
+    cpth === nothing || push!(defs, :($(esc(:_cfield_path))(::Type{$(esc(T))}, ::Val{$(QuoteNode(name))}) = $(Tuple(cpth))))
     if pth !== nothing && !isempty(pth) && !(name in setters)
       push!(setters, name)
       push!(defs, :(@inline $(esc(:_set_extra_property!))($(esc(:x))::$(esc(T)), ::Val{$(QuoteNode(name))}, $(esc(:v))) = setfield!($(esc(:x)), :cstruct, _setpath(getfield($(esc(:x)), :cstruct), $(Tuple(pth)), $(esc(:v))))))
