@@ -293,6 +293,21 @@ _asword(v::Ptr) = UInt(v)
 _asword(v::Integer) = v % UInt
 
 """
+    _copy_union_words!(z, x; from::Int = 1, to::Int = <last word>)
+
+Copy the words `from` to `to` of the C union of `x` into that of `z`.
+
+Both wrap the same generated union type, and `z` is modified in place.
+"""
+function _copy_union_words!(z, x; from::Int = 1, to::Int = typemax(Int))
+  zw = getfield(getfield(z, :cstruct), :uniondata)
+  xw = getfield(getfield(x, :cstruct), :uniondata)
+  words = ntuple(i -> from <= i <= to ? xw[i] : zw[i], Val(length(zw)))
+  setfield!(z, :cstruct, _setfield(getfield(z, :cstruct), :uniondata, words))
+  return z
+end
+
+"""
     _subst_cstruct(ex)
 
 Replace the symbol `cstruct` in the expression `ex` by `getfield(x, :cstruct)`.
